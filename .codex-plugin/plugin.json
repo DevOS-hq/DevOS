@@ -1,0 +1,22 @@
+{
+  "name": "devos",
+  "version": "0.1.0",
+  "description": "Run your engineering work from markdown: projects, actions, evidence of impact, status and progress reports, and specs, kept in a git repo you own.",
+  "author": {
+    "name": "DevOS contributors"
+  },
+  "homepage": "https://github.com/devos-hq/DevOS",
+  "repository": "https://github.com/devos-hq/DevOS",
+  "license": "MIT",
+  "keywords": ["projects", "status-reports", "specs", "performance-review", "markdown"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "DevOS",
+    "shortDescription": "Projects, actions, evidence, reports and specs as markdown",
+    "longDescription": "Run your engineering work from markdown: projects, actions, evidence of impact, status and progress reports, and specs, kept in a git repo you own.",
+    "developerName": "DevOS contributors",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Read", "Write"],
+    "websiteURL": "https://github.com/devos-hq/DevOS"
+  }
+}
