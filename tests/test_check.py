@@ -142,6 +142,19 @@ DEFECTS = [
     # marker (exit 2)
     case("marker_missing", delete(".devos"), ".devos", 1, "marker", exit=2),
     case("marker_malformed", write(".devos", "format: 2\n"), ".devos", 1, "marker", exit=2),
+    case("marker_remote_line_first",
+         write(".devos", "remote: https://git.example.com/me/state.git\nformat: 1\n"),
+         ".devos", 1, "marker", exit=2),
+    # marker: lines after `format: 1` (exit 1; the rest of the repo is still checked)
+    case("marker_remote_empty_url", write(".devos", "format: 1\nremote:   \n"),
+         ".devos", 2, "marker"),
+    case("marker_remote_duplicate",
+         write(".devos", "format: 1\nremote: https://git.example.com/me/state.git\n"
+                         "remote: https://git.example.com/me/state.git\n"),
+         ".devos", 3, "marker"),
+    case("marker_extra_line", write(".devos", "format: 1\nowner: me\n"), ".devos", 2, "marker"),
+    case("marker_second_format_line", write(".devos", "format: 1\nformat: 1\n"),
+         ".devos", 2, "marker"),
     # missing-file
     case("missing_project_md", delete(P + "/project.md"), P + "/project.md", 1, "missing-file"),
     case("missing_spec_md", delete(SPEC + "/spec.md"), SPEC + "/spec.md", 1, "missing-file"),
@@ -307,6 +320,11 @@ ALLOWED = [
     ("non_md_file_in_status_reports", write(P + "/status-reports/chart.csv", "week,orders\n")),
     ("marker_with_whitespace_and_crlf", write(".devos", "  format: 1  \r\n")),
     ("marker_without_trailing_newline", write(".devos", "format: 1")),
+    ("marker_with_remote_lines",
+     write(".devos", "format: 1\nremote: https://git.example.com/me/state.git\n"
+                     "remote: git@git.example.com:me/state.git\n")),
+    ("marker_with_remote_line_crlf_no_trailing_newline",
+     write(".devos", "format: 1\r\nremote: https://git.example.com/me/state.git")),
     ("brief_item_none",
      replace(SPEC + "/brief.md", "- [No changes to the signed-in checkout](spec.md#non-goals).",
              "- None")),

@@ -23,7 +23,9 @@ ALL_JSON = MANIFESTS + MARKETPLACES
 
 NAME = "devos"
 HOLDER = "DevOS contributors"
-PUBLIC_REPO = "devos-hq/DevOS"
+# GitHub's canonical casing; a lowercase org makes a push print "moved".
+PUBLIC_REPO = "DevOS-hq/DevOS"
+PUBLIC_URL = "https://github.com/" + PUBLIC_REPO
 IDENTITY_KEYS = ("author", "owner", "developerName")
 
 
@@ -96,6 +98,17 @@ class ManifestTests(unittest.TestCase):
             load(CODEX_MARKET)["plugins"][0].get("source"),
             {"source": "local", "path": "./"},
         )
+
+    def test_repo_links_point_at_the_public_repo(self):
+        links = {}
+        for rel in MANIFESTS:
+            for key in ("homepage", "repository"):
+                links["{}:{}".format(rel, key)] = load(rel).get(key)
+        links[CODEX_PLUGIN + ":interface.websiteURL"] = (
+            load(CODEX_PLUGIN)["interface"].get("websiteURL"))
+        for where, url in links.items():
+            with self.subTest(link=where):
+                self.assertEqual(url, PUBLIC_URL)
 
     def test_skills_folder_exists(self):
         self.assertTrue((ROOT / "skills").is_dir())

@@ -1,6 +1,6 @@
 # DevOS
 
-An operating base for a software engineer's project work: projects, actions, evidence of impact, reports and specs, kept as markdown in a git repository the engineer owns.
+An operating base for a software engineer's project work: projects, actions, evidence of impact, reports and specs, kept as markdown in a git repository on the engineer's machine or in a private repository on their company's Git host.
 
 ## Language
 
@@ -9,6 +9,10 @@ An operating base for a software engineer's project work: projects, actions, evi
 **State repo**:
 A git repository holding one person's DevOS records as markdown. A person may keep several, one per body of work.
 _Avoid_: workspace, vault, state set
+
+**Confirmed remote**:
+A remote the user has confirmed is a private repository on their company's Git host, under their work account. DevOS pushes a state repo only to a confirmed remote or to a path on the machine.
+_Avoid_: trusted remote, allowed remote, personal remote
 
 ### Projects
 

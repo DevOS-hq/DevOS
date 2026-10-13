@@ -7,8 +7,8 @@
   "plugins": [
     {
       "name": "devos",
-      "description": "Run your engineering work from markdown: projects, actions, evidence of impact, status and progress reports, and specs, kept in a git repo you own.",
-      "version": "0.1.0",
+      "description": "Run your engineering work from markdown: projects, actions, evidence of impact, status and progress reports, and specs, kept in a git repo on your machine or in a private repo on your company's Git host.",
+      "version": "0.2.0",
       "source": "./",
       "author": {
         "name": "DevOS contributors"

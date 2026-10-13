@@ -76,11 +76,15 @@ Write the subject by the `writing` rules for commit messages. For example: `Set 
 
 ## Push
 
-Push only when the user gave a remote URL.
+Push only when the user gave a remote URL. Check the URL before you add it as `origin`.
 
-1. If the repo has no `origin`, run `git remote add origin <url>`. If `origin` already has that URL, keep it.
-2. Run `git push -u origin HEAD`.
-3. If the push fails, keep the local commit and `origin`. Quote the error in one line in your reply.
+1. From the state repo root, run the plugin's remote check, `../../scripts/remote.py`, with its full path. For example: `python3 /path/to/plugin/scripts/remote.py check --url <url>`. It prints one line about the URL.
+2. Exit 0: if the repo has no `origin`, run `git remote add origin <url>`. If `origin` already has that URL, keep it. Then run `git remote get-url --push --all origin`. If it prints only `<url>`, run `git push -u origin HEAD`. If it prints any other URL, a git setting sends the push there and the check never saw it: don't push, keep `origin`, and name the URL in your reply. The next skill that pushes checks it.
+3. Exit 3: nobody has confirmed the URL. Ask the user, word for word: "Is `<url>` a private repository on your company's Git host, under your work account?" Only a clear yes counts. On yes, run `python3 /path/to/plugin/scripts/remote.py confirm <url>`. If it exits 0, commit `.devos` alone with `git commit -m "Confirm the push remote" -- .devos` and go back to step 1. On anything else, don't push.
+4. Exit 1: the repo can be read without signing in. Don't push. Tell the user to make it private first.
+5. Any other exit, or no `python3`: don't push, and say why in your reply.
+6. When the check stops the push, keep the local commits and add no `origin`.
+7. If the push fails, keep the local commits and `origin`. Quote the error in one line in your reply.
 
 Never create the remote repository, on GitHub or anywhere else. Without a URL, add no remote and don't push.
 

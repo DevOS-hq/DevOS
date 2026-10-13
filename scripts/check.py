@@ -581,19 +581,45 @@ def _entries(folder, dirs):
     return out
 
 
-def check_marker(root):
-    """None when `.devos` holds `format: 1`, else the detail of the defect."""
-    path = os.path.join(root, ".devos")
-    if not os.path.isfile(path):
-        return "no `.devos` file: this folder is not a DevOS state repo"
+def _marker_lines(root):
+    """The non-blank lines of `.devos` as [(line number, stripped text)], or None."""
     try:
-        with open(path, encoding="utf-8-sig") as f:
+        with open(os.path.join(root, ".devos"), encoding="utf-8-sig") as f:
             content = f.read()
     except (OSError, UnicodeDecodeError):
-        content = None
-    if content is None or content.strip() != MARKER:
-        return "`.devos` must hold the single line `{}`".format(MARKER)
+        return None
+    return [(n, text.strip()) for n, text in enumerate(content.splitlines(), 1) if text.strip()]
+
+
+def check_marker(root):
+    """None when the first line of `.devos` is `format: 1`, else the detail of the defect.
+
+    Lines after it are checked by `marker_defects`.
+    """
+    if not os.path.isfile(os.path.join(root, ".devos")):
+        return "no `.devos` file: this folder is not a DevOS state repo"
+    lines = _marker_lines(root)
+    if not lines or lines[0][1] != MARKER:
+        return "`.devos` must start with the line `{}`".format(MARKER)
     return None
+
+
+def marker_defects(root):
+    """[(line, detail)] for `.devos` lines after `format: 1` that are not unique `remote: <url>`."""
+    out, seen = [], set()
+    for number, text in (_marker_lines(root) or [])[1:]:
+        key, colon, url = text.partition(":")
+        url = url.strip()
+        if key != "remote" or not colon:
+            out.append((number, "after `{}`, `.devos` holds only `remote: <url>` lines, not `{}`"
+                        .format(MARKER, short(text))))
+        elif not url:
+            out.append((number, "`remote:` line has no URL"))
+        elif url in seen:
+            out.append((number, "`remote: {}` is listed twice".format(short(url))))
+        else:
+            seen.add(url)
+    return out
 
 
 def main(argv=None):
@@ -617,6 +643,8 @@ def main(argv=None):
         return 2
 
     checker = Checker(root)
+    for line, detail in marker_defects(root):
+        checker.add(".devos", line, "marker", detail)
     try:
         checker.run()
     except Unreadable as e:

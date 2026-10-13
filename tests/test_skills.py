@@ -158,6 +158,64 @@ def body_without(*pairs):
     return body
 
 
+# A base that pushes. It runs the remote check before its first `git push`,
+# quotes the attestation question word for word, carries the fail-closed
+# sentence and never runs a bare `git push`, so it passes `names-remote`.
+QUESTION = ("Is `<url>` a private repository on your company's Git host, "
+            "under your work account?")
+FAIL_CLOSED = "Any other exit, or no `python3`: don't push, and say why in your reply."
+PUSH_BODY = BASE_BODY + """
+## Push
+
+Run `git remote`. If it prints nothing, don't push.
+
+1. From the state repo root, run the plugin's remote check, `../../scripts/remote.py`, with its
+   full path: `python3 /path/to/plugin/scripts/remote.py check`.
+2. Exit 0: run `git push -u <remote> HEAD` with the remote it named.
+3. Exit 3: ask the user, word for word: "%s" Only a clear yes counts.
+4. Exit 1: don't push.
+5. %s
+""" % (QUESTION, FAIL_CLOSED)
+
+
+def push_body_without(*pairs):
+    """PUSH_BODY with each (old, new) replacement applied; the old text must exist."""
+    body = PUSH_BODY
+    for old, new in pairs:
+        assert old in body, old
+        body = body.replace(old, new)
+    return body
+
+
+# One planted case per `names-remote` clause, with a word its message must hold.
+REMOTE_CLAUSES = {
+    "a-no-remote-check": (
+        push_body_without(("`../../scripts/remote.py`", "the remote check"),
+                          ("/path/to/plugin/scripts/remote.py", "/path/to/plugin/remote")),
+        "remote.py",
+    ),
+    "a-remote-check-after-push": (
+        push_body_without(
+            ("1. From the state repo root, run the plugin's remote check, "
+             "`../../scripts/remote.py`, with its\n   full path: "
+             "`python3 /path/to/plugin/scripts/remote.py check`.\n", ""),
+            ("\n5. Any other exit", "\n5. Then run `../../scripts/remote.py check`. Any other exit")),
+        "remote.py",
+    ),
+    "b-question-reworded": (
+        push_body_without((QUESTION, "Is `<url>` private?")),
+        "question",
+    ),
+    "c-no-fail-closed": (
+        push_body_without((FAIL_CLOSED, "Otherwise, don't push.")),
+        "fail-closed",
+    ),
+    "d-bare-git-push": (
+        push_body_without(("4. Exit 1: don't push.", "4. Exit 1: don't push. Never run `git push`.")),
+        "bare",
+    ),
+}
+
 LONG_NAME = "a" * 65
 SHORT_ENOUGH_NAME = "a" * 64
 
@@ -209,6 +267,7 @@ CASES = {
         BASE_NAME,
         skill_text(body=body_without(("../../FORMAT.md", "the format reference"))),
     ),
+    "names-remote": (BASE_NAME, skill_text(body=REMOTE_CLAUSES["a-no-remote-check"][0])),
     "frontmatter": (BASE_NAME, BASE_BODY),
     "skill-file": (BASE_NAME, None),
 }
@@ -326,6 +385,34 @@ class PlantedSkills(unittest.TestCase):
 
     def test_never_names_format(self):
         self.assert_only_rule("names-format")
+
+    def test_pushes_without_remote_check(self):
+        self.assert_only_rule("names-remote")
+
+    def test_good_pushing_base_passes(self):
+        self.assertEqual(skill_lint.lint_skill(self.plant(BASE_NAME, skill_text(body=PUSH_BODY))),
+                         [])
+
+    def test_each_names_remote_clause_fails_alone(self):
+        for clause, (body, word) in sorted(REMOTE_CLAUSES.items()):
+            with self.subTest(clause=clause):
+                found = skill_lint.lint_skill(self.plant(clause, skill_text(name=clause, body=body)))
+                self.assertEqual([rule for rule, _ in found], ["names-remote"], found)
+                self.assertIn(word, found[0][1])
+
+    def test_lint_constants_match_the_fixed_strings(self):
+        self.assertEqual(skill_lint.QUESTION, QUESTION)
+        self.assertEqual(skill_lint.FAIL_CLOSED, FAIL_CLOSED)
+
+    def test_names_remote_ignores_a_body_that_never_pushes(self):
+        # BASE_BODY says "push when a remote exists" but never `git push`.
+        self.assertNotIn("git push", BASE_BODY)
+        self.assertEqual(self.rule_ids(self.plant(BASE_NAME, skill_text())), [])
+
+    def test_writing_skill_is_exempt_from_names_remote(self):
+        body = "\n# Writing\n\nNever write `git push` in a commit message.\n"
+        d = self.plant("writing", skill_text(name="writing", body=body))
+        self.assertEqual(self.rule_ids(d), [])
 
     def test_no_frontmatter(self):
         self.assert_only_rule("frontmatter")
@@ -476,6 +563,33 @@ class RealSkills(unittest.TestCase):
             "Run `git add -- <paths>` and `git commit -m \"<subject>\" -- <paths>`.\n"))
         self.assertEqual(missing_evidence_report_steps("record-evidence", evidence),
                          ["`none`"])
+
+    def test_pushing_skills_check_the_remote_and_push_to_it(self):
+        # names-remote applies only to a body holding `git push`, so pin that
+        # every skill but `writing` pushes, and how each one calls the check.
+        for skill in sorted(EXPECTED_SKILLS - {"writing"}):
+            with self.subTest(skill=skill):
+                with open(os.path.join(SKILLS, skill, "SKILL.md"), encoding="utf-8") as fh:
+                    _, body, _ = skill_lint.split_skill(fh.read())
+                body = "\n".join(body)
+                if skill == "init":
+                    steps = ("scripts/remote.py check --url <url>", "scripts/remote.py confirm <url>",
+                             "git push -u origin HEAD", "-- .devos")
+                else:
+                    steps = ("scripts/remote.py check`", "scripts/remote.py confirm <url>",
+                             "git push -u <remote> HEAD", "-- .devos")
+                self.assertEqual([step for step in steps if step not in body], [])
+
+    def test_init_checks_the_push_urls_of_origin_before_it_pushes(self):
+        # `check --url` sees the URL as typed; git rewrites it on push with
+        # `pushInsteadOf`/`insteadOf`, and an existing `origin` may hold a
+        # `pushurl`. init compares what git will push to before it pushes.
+        with open(os.path.join(SKILLS, "init", "SKILL.md"), encoding="utf-8") as fh:
+            _, body, _ = skill_lint.split_skill(fh.read())
+        body = "\n".join(body)
+        get_url = "git remote get-url --push --all origin"
+        self.assertIn(get_url, body)
+        self.assertLess(body.index(get_url), body.index("git push -u origin HEAD"))
 
     def test_create_spec_names_required_steps(self):
         path = os.path.join(SKILLS, "create-spec", "SKILL.md")

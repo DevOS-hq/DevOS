@@ -183,9 +183,12 @@ Write the subject by the `writing` rules for commit messages: under 72 character
 
 Run `git remote`. If it prints nothing, don't push.
 
-1. If the current branch has an upstream, run `git push`. The command `git rev-parse --abbrev-ref '@{u}'` prints the upstream, and fails when there is none.
-2. Otherwise run `git push -u <remote> HEAD` with the remote that `git remote` printed. When it printed several, use `origin`.
-3. If the push fails, keep the local commit. Quote the error in one line in your reply.
+1. From the state repo root, run the plugin's remote check, `../../scripts/remote.py`, with its full path. For example: `python3 /path/to/plugin/scripts/remote.py check`. It picks the remote to push to and prints one line naming the remote and its URL.
+2. Exit 0: run `git push -u <remote> HEAD` with the remote the check named.
+3. Exit 3: the line names a URL nobody has confirmed. Ask the user, word for word: "Is `<url>` a private repository on your company's Git host, under your work account?" Only a clear yes counts. On yes, run `python3 /path/to/plugin/scripts/remote.py confirm <url>`. If it exits 0, commit `.devos` alone with `git commit -m "Confirm the push remote" -- .devos` and go back to step 1. On anything else, don't push.
+4. Exit 1: the repo can be read without signing in. Don't push. Tell the user to make it private first.
+5. Any other exit, or no `python3`: don't push, and say why in your reply.
+6. If the push fails, keep the local commits. Quote the error in one line in your reply.
 
 Never add a remote or create a remote repository.
 

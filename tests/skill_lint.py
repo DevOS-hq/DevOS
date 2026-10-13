@@ -33,9 +33,17 @@ Rules (ids are stable; tests and callers match on them):
   names-python3             the body contains `python3` (says what the skill does
                             when python3 is missing)
   names-format              the body names `../../FORMAT.md`
+  names-remote              a body that holds `git push` (a) names
+                            `scripts/remote.py` before its first `git push`,
+                            (b) quotes the attestation question (QUESTION)
+                            word for word, (c) holds the fail-closed sentence
+                            (FAIL_CLOSED), and (d) never holds the bare command
+                            `git push` in backticks. One problem per clause.
 
-The four names-* rules skip the skill whose folder is `writing`. They read the
+The five names-* rules skip the skill whose folder is `writing`. They read the
 body only, because the body is what the model follows once the skill loads.
+Clauses (b) and (c) match with runs of whitespace collapsed to one space, so a
+sentence may wrap across lines.
 
 What counts as naming the `writing` skill: the code span `writing` (in
 backticks), `devos:writing`, or the phrase "writing skill" (any case, as whole
@@ -56,6 +64,9 @@ MAX_NAME = 64
 MAX_DESCRIPTION = 1024
 MAX_BODY_LINES = 200
 WRITING = "writing"
+QUESTION = ("Is `<url>` a private repository on your company's Git host, "
+            "under your work account?")
+FAIL_CLOSED = "Any other exit, or no `python3`: don't push, and say why in your reply."
 
 RULES = {
     "skill-file": "the folder holds no readable SKILL.md",
@@ -76,6 +87,7 @@ RULES = {
     "names-check": "never names `scripts/check.py`",
     "names-python3": "never mentions `python3` (what to do when python3 is missing)",
     "names-format": "never names `../../FORMAT.md`",
+    "names-remote": "pushes without the remote check",
 }
 
 NAME_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
@@ -209,6 +221,16 @@ def lint_skill(skill_dir):
             report("names-python3")
         if "../../FORMAT.md" not in body:
             report("names-format")
+        if "git push" in body:
+            flat = " ".join(body.split())
+            if "scripts/remote.py" not in body[:body.index("git push")]:
+                report("names-remote", "`scripts/remote.py` is not named before the first `git push`")
+            if QUESTION not in flat:
+                report("names-remote", "the attestation question is not quoted word for word")
+            if FAIL_CLOSED not in flat:
+                report("names-remote", "the fail-closed sentence is missing")
+            if "`git push`" in body:
+                report("names-remote", "holds the bare command `git push`")
 
     return problems
 

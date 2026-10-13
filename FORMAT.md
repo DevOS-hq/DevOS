@@ -4,7 +4,7 @@ A state repo is a git repository of markdown files that holds one person's DevOS
 
 ## Marker
 
-A folder is a state repo when its root holds a file named `.devos` containing one line:
+A folder is a state repo when its root holds a file named `.devos` whose first line is:
 
 Example: `.devos`
 
@@ -12,7 +12,14 @@ Example: `.devos`
 format: 1
 ```
 
-A trailing newline is optional; surrounding whitespace and a trailing carriage return are ignored. The number versions the format. Without a valid marker, skills treat the folder as not a state repo and point to `init` [`marker`].
+A trailing newline is optional; surrounding whitespace, a trailing carriage return and blank lines are ignored. The number versions the format. Without a valid first line, skills treat the folder as not a state repo and point to `init` [`marker`].
+
+Each later line is `remote: <url>`: a confirmed remote, one the user said is a private repository on their company's Git host, under their work account. The plugin's remote check, `scripts/remote.py`, writes a line when the user confirms a remote, and skills commit `.devos` alone after it. Skills push only to a remote the check allows. The URL is written exactly as `git remote get-url` prints it. A `remote:` line with no URL, a URL listed twice, or any other line is a defect [`marker`].
+
+```text
+format: 1
+remote: git@git.example.com:me/devos-state.git
+```
 
 ## Layout
 
@@ -314,12 +321,12 @@ python3 scripts/check.py --rules
 - It needs Python 3.9 or later and nothing else.
 - It prints one line per defect, sorted by path then line: `<path>:<line>: <rule id>: <detail>`, for example ``projects/checkout-revamp/actions.md:5: priority: priority must be P0, P1, P2 or P3, not `P4` ``.
 - A defect names the line it sits on. A missing field or heading names the line of the heading it belongs under (the title, for file-level items). A missing file, a bad file or folder name, and a missing title name line 1.
-- Exit codes: `0` when every file it knows is valid, `1` when it finds a defect, `2` when the folder has no valid `.devos` (printed as a `.devos:1: marker:` line), the path is not a folder, or a file it knows cannot be read (a `<path>: cannot read: <reason>` message on stderr).
+- Exit codes: `0` when every file it knows is valid, `1` when it finds a defect, `2` when the folder has no `.devos` or its first line is not `format: 1` (printed as a `.devos:1: marker:` line), the path is not a folder, or a file it knows cannot be read (a `<path>: cannot read: <reason>` message on stderr).
 - `--rules` prints every rule id, one per line.
 
 ## Rule ids
 
-- `marker`: `.devos` is missing or does not hold the line `format: 1`.
+- `marker`: `.devos` is missing or its first line is not `format: 1` (exit `2`), or a later line is not a `remote: <url>` line, has no URL, or repeats a URL (exit `1`).
 - `missing-file`: a project folder has no `project.md`, or a spec folder lacks `brief.md`, `spec.md` or `appendix.md`.
 - `slug`: a project or spec folder name is not a lowercase hyphenated slug.
 - `filename-date`: a report file is not named `<YYYY-MM-DD>.md`, or its **Share date** differs from its name.

@@ -9,20 +9,20 @@ The plugin installs once per tool, for your user account. It never stores your w
 **Claude Code**
 
 ```
-/plugin marketplace add devos-hq/DevOS
+/plugin marketplace add DevOS-hq/DevOS
 /plugin install devos@devos
 ```
 
 **Codex**
 
 ```
-codex plugin marketplace add devos-hq/DevOS
+codex plugin marketplace add DevOS-hq/DevOS
 codex plugin add devos@devos
 ```
 
 **Cursor**
 
-Open Customize, choose From GitHub Repository, and enter `github.com/devos-hq/DevOS`.
+Open Customize, choose From GitHub Repository, and enter `github.com/DevOS-hq/DevOS`.
 
 ## Your state repo
 
@@ -40,11 +40,23 @@ projects/<project>/specs/<spec>/brief.md, spec.md, appendix.md
 progress-reports/<date>.md
 ```
 
+Keep a state repo on your machine, or in a private repository on your company's Git host, under your work account. DevOS does not push work records anywhere else.
+
+Before any push, the skills run `scripts/remote.py`:
+
+- A remote that is a path on your machine, or a `file://` URL, is always allowed.
+- Any other remote must be confirmed. DevOS asks you once, word for word: "Is `<url>` a private repository on your company's Git host, under your work account?" A clear yes is recorded as a `remote: <url>` line in `.devos`, in its own commit. Every push checks again.
+- The script also makes one anonymous, read-only `git ls-remote` against the remote, with credentials and your user and system git config turned off. If anyone can read the repo without signing in, the push is refused even when you confirmed it. Make the repo private first.
+- A remote URL with credentials in it is refused.
+- If `python3` or the script is missing or fails, nothing is pushed.
+
+`init` checks the URL before it adds `origin`. If the check fails, it commits locally, adds no `origin` and pushes nothing. After it adds `origin`, it pushes only when git would push to that same URL, not one a git setting rewrites it to.
+
 [FORMAT.md](FORMAT.md) defines each file. To check a state repo against it, run `python3 scripts/check.py <state-repo>` from the plugin folder; it prints one line per problem and needs only Python 3.9 or later.
 
 ## Skills
 
-Ask your agent for the change you want, or name the skill. Each skill that changes a state repo asks for any required field you left out, commits only the files it touched, and pushes when the repo has a remote.
+Ask your agent for the change you want, or name the skill. Each skill that changes a state repo asks for any required field you left out, commits only the files it touched, and pushes when the repo has a remote that passes the check described under "Your state repo".
 
 - `init` sets up a state repo in the current folder.
 - `create-project` creates a project with its priority, stakeholders and requirements.
@@ -57,11 +69,11 @@ Ask your agent for the change you want, or name the skill. Each skill that chang
 - `create-spec` asks about the problem, goals, milestones, risks and open questions, shows an outline for you to confirm, then writes a project's spec as a brief, the full spec and an appendix.
 - `writing` holds the plain-language rules the other skills follow for every file, commit message and reply.
 
-The two report skills run `scripts/window.py`, which prints the actions and evidence in a time frame. A report holds only the items it prints, so the report skills need Python 3.9 or later.
+The two report skills run `scripts/window.py`, which prints the actions and evidence in a time frame. A report holds only the items it prints, so the report skills need Python 3.9 or later. Apart from the one anonymous `git ls-remote` that `scripts/remote.py` makes before a push to a non-local remote, the scripts make no network calls.
 
 ## Testing
 
-Run the offline suite from the plugin folder. It needs Python 3.9 or later and no network:
+Run the offline suite from the plugin folder. It needs Python 3.9 or later and no internet access (one test talks to a git daemon on 127.0.0.1):
 
 ```
 python3 -m unittest discover -s tests
